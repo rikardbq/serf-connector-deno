@@ -17,7 +17,7 @@ import {
     verifyJWT,
 } from "util";
 
-type Error = { statusText: string; message: string };
+type Error = { statusText?: string; message?: string };
 
 const syntheticResponseObject = (error: Error) => ({
     payload: null,
@@ -129,7 +129,6 @@ export class Connector {
 
             const claims = generateClaims(sub, dat);
             const jws = await generateJWS(claims, username_password_hash);
-
             const body = JSON.stringify({
                 payload: jws,
             });
@@ -151,7 +150,10 @@ export class Connector {
      */
     async query(query: string, ...query_args: (number | string)[]) {
         try {
-            return await handleResponse(await this.call(Sub.FETCH, query, ...query_args), this.username_password_hash);
+            return await handleResponse(
+                await this.call(Sub.FETCH, query, ...query_args),
+                this.username_password_hash,
+            );
         } catch (error) {
             return syntheticResponseObject(error as Error);
         }
@@ -164,7 +166,10 @@ export class Connector {
      */
     async mutate(query: string, ...query_args: (number | string)[]) {
         try {
-            return await handleResponse(await this.call(Sub.MUTATE, query, ...query_args), this.username_password_hash);
+            return await handleResponse(
+                await this.call(Sub.MUTATE, query, ...query_args),
+                this.username_password_hash,
+            );
         } catch (error) {
             return syntheticResponseObject(error as Error);
         }
