@@ -9,6 +9,12 @@
  */
 import * as jose from "jose";
 
+const syntheticError = (error: any) => ({
+    payload: null,
+    error: error.statusText ?? error.message ??
+        "Something went wrong (unspecified error)",
+});
+
 const generateSHA256 = async (input: string, encoder: TextEncoder) => {
     const text_as_buffer = encoder.encode(input);
     const hash_buffer = await globalThis.crypto.subtle.digest(
@@ -70,6 +76,7 @@ type ConnectorInitArgs = {
 };
 
 export class Connector {
+    private username_password_hash: Uint8Array;
     private call: (
         sub: Sub,
         q: string,
@@ -79,8 +86,9 @@ export class Connector {
     private constructor(
         full_addr: string,
         username_hash: string,
-        username_password_hash: string,
+        username_password_hash: Uint8Array,
     ) {
+        this.username_password_hash = username_password_hash;
         this.call = this.exec(full_addr, username_hash, username_password_hash);
     }
 
@@ -107,26 +115,29 @@ export class Connector {
         );
         const full_addr = `${addr}/${database_hash}`;
 
-        return new Connector(full_addr, username_hash, username_password_hash);
+        return new Connector(
+            full_addr,
+            username_hash,
+            encoder.encode(username_password_hash),
+        );
     }
 
     /**
      * @param {string} full_addr
      * @param {string} username_hash
      * @param {string} username_password_hash
-     * @returns {(q: string, ...qa: (number | string)[]) => Promise<Response>} function that accepts query string and query varargs and returns thenable / awaitable fetch response
+     * @returns {(q: string, ...qa: (number | string)[]) => Promise<any>} function that accepts query string and query varargs and returns thenable / awaitable fetch response
      */
     private exec(
         full_addr: string,
         username_hash: string,
-        username_password_hash: string,
+        username_password_hash: Uint8Array,
     ): typeof this.call {
         const endpoint = full_addr;
         const headers = {
             "content-type": "application/json",
             u_: username_hash,
         };
-        const encoder = new TextEncoder();
 
         return async function (
             sub: Sub,
@@ -139,10 +150,9 @@ export class Connector {
             };
 
             const claims = generateClaims(sub, dat);
-            const jwk = encoder.encode(username_password_hash);
             const jws = await new jose.SignJWT(claims)
                 .setProtectedHeader({ alg: "HS256" })
-                .sign(jwk);
+                .sign(username_password_hash);
 
             const body = JSON.stringify({
                 payload: jws,
@@ -164,13 +174,31 @@ export class Connector {
      * @returns {JSON} json data
      */
     async query(query: string, ...query_args: (number | string)[]) {
-        return (await this.call(Sub.FETCH, query, ...query_args)).json();
+        try {
+            const res = await this.call(Sub.FETCH, query, ...query_args);
+            const json = await res.json();
+
+            const is_valid = await jose.jwtVerify(
+                json.payload,
+                this.username_password_hash,
+                { algorithms: ["HS256"] },
+            );
+            if (is_valid) {
+                const decoded = jose.decodeJwt(json.payload);
+
+                return {
+                    data: JSON.parse(decoded.dat as string),
+                };
+            }
+        } catch (err) {
+            return syntheticError(err as Response);
+        }
     }
 
     /**
      * @param {string} query
      * @param {(number | string)[]} query_args
-     * @returns {JSON} json dataI
+     * @returns {JSON} json data
      */
     async mutate(query: string, ...query_args: (number | string)[]) {
         return (await this.call(Sub.MUTATE, query, ...query_args)).json();
@@ -179,17 +207,15 @@ export class Connector {
 
 /**
  * EXAMPLE USAGE:
- *
 const connection = await Connector.init(
     "http://localhost:8080",
     { database: "testing", username: "rikardbq", password: "test_pass" },
 );
 
-console.log(
-    await connection.query(
-        "SELECT * FROM users5 WHERE id = ? AND name = ?;",
-        1,
-        "hello",
-    ),
+const data = await connection.query(
+    "SELECT * FROM users5;",
 );
-*/
+
+console.log(data);
+ */
+
