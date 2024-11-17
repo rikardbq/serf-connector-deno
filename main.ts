@@ -37,6 +37,7 @@ enum Iss {
 enum Sub {
     MUTATE = "M_",
     FETCH = "F_",
+    DATA = "D_",
 }
 
 type Dat = {
@@ -178,10 +179,18 @@ export class Connector {
             const res = await this.call(Sub.FETCH, query, ...query_args);
             const json = await res.json();
 
+            if (json.error) {
+                return json;
+            }
+
             const is_valid = await jose.jwtVerify(
                 json.payload,
                 this.username_password_hash,
-                { algorithms: ["HS256"] },
+                {
+                    algorithms: ["HS256"],
+                    issuer: Iss.SERVER,
+                    subject: Sub.DATA,
+                },
             );
             if (is_valid) {
                 const decoded = jose.decodeJwt(json.payload);
@@ -218,4 +227,3 @@ const data = await connection.query(
 
 console.log(data);
  */
-
