@@ -7,66 +7,43 @@
  *  - header is provided with username hash [ u_ ]
  *  - adding the correct subjects to claims MUTATE or FETCH, sent as [ M_, F_ ]
  */
-import * as jose from "jose";
+import {
+    type Dat,
+    decodeJWT,
+    generateClaims,
+    generateJWS,
+    generateSHA256,
+    Sub,
+    verifyJWT,
+} from "util";
 
-const syntheticError = (error: any) => ({
+type Error = { statusText: string; message: string };
+
+const syntheticResponseObject = (error: Error) => ({
     payload: null,
     error: error.statusText ?? error.message ??
         "Something went wrong (unspecified error)",
 });
 
-const generateSHA256 = async (input: string, encoder: TextEncoder) => {
-    const text_as_buffer = encoder.encode(input);
-    const hash_buffer = await globalThis.crypto.subtle.digest(
-        "SHA-256",
-        text_as_buffer,
+const handleResponse = async (
+    res: Response,
+    username_password_hash: Uint8Array,
+) => {
+    const json = await res.json();
+
+    if (json.error) {
+        return json;
+    }
+
+    await verifyJWT(
+        json.payload as string,
+        username_password_hash,
     );
-    const hash_arr = Array.from(new Uint8Array(hash_buffer));
-    const hash = hash_arr
-        .map((item) => item.toString(16).padStart(2, "0"))
-        .join("");
 
-    return hash;
-};
-
-enum Iss {
-    CLIENT = "C_",
-    SERVER = "S_",
-}
-
-enum Sub {
-    MUTATE = "M_",
-    FETCH = "F_",
-    DATA = "D_",
-}
-
-type Dat = {
-    base_query: string;
-    parts: (number | string)[] | [];
-};
-
-type Claims = {
-    iss: Iss;
-    sub: Sub;
-    dat: string;
-    iat: number;
-    exp: number;
-};
-
-/**
- * @param {Sub} sub
- * @param {Dat} dat
- * @returns {Claims} JWT claims
- */
-const generateClaims = (sub: Sub, dat: Dat): Claims => {
-    const now = Math.floor(Date.now() / 1000);
+    const decoded = decodeJWT(json.payload);
 
     return {
-        iss: Iss.CLIENT,
-        sub,
-        dat: JSON.stringify(dat),
-        iat: now,
-        exp: now + 30,
+        data: JSON.parse(decoded.dat as string),
     };
 };
 
@@ -151,15 +128,13 @@ export class Connector {
             };
 
             const claims = generateClaims(sub, dat);
-            const jws = await new jose.SignJWT(claims)
-                .setProtectedHeader({ alg: "HS256" })
-                .sign(username_password_hash);
+            const jws = await generateJWS(claims, username_password_hash);
 
             const body = JSON.stringify({
                 payload: jws,
             });
 
-            return fetch(
+            return await fetch(
                 new Request(endpoint, {
                     method: "POST",
                     body,
@@ -176,31 +151,9 @@ export class Connector {
      */
     async query(query: string, ...query_args: (number | string)[]) {
         try {
-            const res = await this.call(Sub.FETCH, query, ...query_args);
-            const json = await res.json();
-
-            if (json.error) {
-                return json;
-            }
-
-            const is_valid = await jose.jwtVerify(
-                json.payload,
-                this.username_password_hash,
-                {
-                    algorithms: ["HS256"],
-                    issuer: Iss.SERVER,
-                    subject: Sub.DATA,
-                },
-            );
-            if (is_valid) {
-                const decoded = jose.decodeJwt(json.payload);
-
-                return {
-                    data: JSON.parse(decoded.dat as string),
-                };
-            }
-        } catch (err) {
-            return syntheticError(err as Response);
+            return await handleResponse(await this.call(Sub.FETCH, query, ...query_args), this.username_password_hash);
+        } catch (error) {
+            return syntheticResponseObject(error as Error);
         }
     }
 
@@ -210,7 +163,11 @@ export class Connector {
      * @returns {JSON} json data
      */
     async mutate(query: string, ...query_args: (number | string)[]) {
-        return (await this.call(Sub.MUTATE, query, ...query_args)).json();
+        try {
+            return await handleResponse(await this.call(Sub.MUTATE, query, ...query_args), this.username_password_hash);
+        } catch (error) {
+            return syntheticResponseObject(error as Error);
+        }
     }
 }
 
