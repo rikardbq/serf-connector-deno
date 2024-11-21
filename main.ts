@@ -84,8 +84,16 @@ export class Connector {
         }: ConnectorInitArgs,
     ): Promise<Connector> {
         const encoder = new TextEncoder();
+        const database_lc = database.toLowerCase();
+        const pattern = /[^a-z0-9_-]+/g;
 
-        const database_hash = await generateSHA256(database, encoder);
+        if (pattern.test(database_lc)) {
+            throw new Error(
+                "Database name may only contain characters from these patterns: [a-z, 0-9, _-]",
+            );
+        }
+
+        const database_hash = await generateSHA256(database_lc, encoder);
         const username_hash = await generateSHA256(username, encoder);
         const username_password_hash = await generateSHA256(
             username + password,
@@ -180,12 +188,33 @@ export class Connector {
  * EXAMPLE USAGE:
 const connection = await Connector.init(
     "http://localhost:8080",
-    { database: "testing", username: "rikardbq", password: "test_pass" },
+    { database: "helloworld", username: "rikardbq", password: "123" },
+);
+
+await connection.mutate(
+    `
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY NOT NULL, 
+        username TEXT NOT NULL UNIQUE, 
+        first_name TEXT NOT NULL UNIQUE, 
+        last_name TEXT NOT NULL
+    );
+    `,
+);
+
+await connection.mutate(
+    `
+    INSERT INTO users(username, first_name, last_name) VALUES(?, ?, ?);
+    `,
+    "rikardbq", "Rikard", "Bergqvist"
 );
 
 const data = await connection.query(
-    "SELECT * FROM users5;",
+    `
+    SELECT * FROM users;
+    `
 );
 
 console.log(data);
- */
+*/
+
