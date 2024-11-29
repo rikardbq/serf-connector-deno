@@ -1,7 +1,35 @@
 {
   "version": "4",
-  "redirects": {
-    "https://deno.land/x/jose/index.ts": "https://deno.land/x/jose@v5.9.6/index.ts"
+  "specifiers": {
+    "jsr:@std/bytes@^1.0.2": "1.0.4",
+    "jsr:@std/crypto@^1.0.3": "1.0.3",
+    "jsr:@std/fs@^1.0.6": "1.0.6",
+    "jsr:@std/path@^1.0.8": "1.0.8",
+    "jsr:@std/uuid@^1.0.4": "1.0.4"
+  },
+  "jsr": {
+    "@std/bytes@1.0.4": {
+      "integrity": "11a0debe522707c95c7b7ef89b478c13fb1583a7cfb9a85674cd2cc2e3a28abc"
+    },
+    "@std/crypto@1.0.3": {
+      "integrity": "a2a32f51ddef632d299e3879cd027c630dcd4d1d9a5285d6e6788072f4e51e7f"
+    },
+    "@std/fs@1.0.6": {
+      "integrity": "42b56e1e41b75583a21d5a37f6a6a27de9f510bcd36c0c85791d685ca0b85fa2",
+      "dependencies": [
+        "jsr:@std/path"
+      ]
+    },
+    "@std/path@1.0.8": {
+      "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
+    },
+    "@std/uuid@1.0.4": {
+      "integrity": "f4233149cc8b4753cc3763fd83a7c4101699491f55c7be78dc7b30281946d7a0",
+      "dependencies": [
+        "jsr:@std/bytes",
+        "jsr:@std/crypto"
+      ]
+    }
   },
   "remote": {
     "https://deno.land/x/jose@v5.9.6/index.ts": "e6e894e8c2b3a11c4071ee1008eb7d85a373ff68b5fbe5d7791d7384cfdee523",
@@ -84,5 +112,12 @@
     "https://deno.land/x/jose@v5.9.6/util/decode_protected_header.ts": "3412c8aacffee93148478f14a0ebb97b2ff060944f49dd233223d262f592ee36",
     "https://deno.land/x/jose@v5.9.6/util/errors.ts": "b7ecf22990ce73a42650fd09666fb7174fcd91eec387aa26b361269c8022220f",
     "https://deno.land/x/jose@v5.9.6/util/runtime.ts": "088cae7df0d285065f141d880c5c21a572234997082337d1125d7f1603059642"
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@std/fs@^1.0.6",
+      "jsr:@std/path@^1.0.8",
+      "jsr:@std/uuid@^1.0.4"
+    ]
   }
 }

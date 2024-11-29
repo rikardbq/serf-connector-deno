@@ -1,5 +1,8 @@
 {
   "imports": {
+    "@std/fs": "jsr:@std/fs@^1.0.6",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/uuid": "jsr:@std/uuid@^1.0.4",
     "jose": "https://deno.land/x/jose@v5.9.6/index.ts",
     "util": "./util/index.ts"
   },

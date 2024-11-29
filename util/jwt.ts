@@ -1,36 +1,13 @@
 // util/jwt.ts
 import { decodeJwt, jwtVerify, type JWTVerifyResult, SignJWT } from "jose";
-
-enum Iss {
-    CLIENT = "C_",
-    SERVER = "S_",
-}
-
-export enum Sub {
-    MUTATE = "M_",
-    FETCH = "F_",
-    DATA = "D_",
-}
-
-export type Dat = {
-    base_query: string;
-    parts: (number | string)[] | [];
-};
-
-type Claims = {
-    iss: Iss;
-    sub: Sub;
-    dat: string;
-    iat: number;
-    exp: number;
-};
+import { type Claims, Iss, type RequestMigration, type RequestQuery, Sub } from "./types.ts";
 
 /**
  * @param {Sub} sub
- * @param {Dat} dat
+ * @param {RequestQuery | RequestMigration} dat
  * @returns {Claims} JWT claims
  */
-export const generateClaims = (sub: Sub, dat: Dat): Claims => {
+export const generateClaims = (sub: Sub, dat: RequestQuery | RequestMigration): Claims => {
     const now = Math.floor(Date.now() / 1000);
 
     return {

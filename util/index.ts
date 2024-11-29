@@ -1,5 +1,6 @@
 // util/index.ts
 export * from "./jwt.ts";
+export * from "./migration.ts";
 
 /**
  * 
