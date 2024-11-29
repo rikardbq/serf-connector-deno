@@ -1,22 +1,29 @@
 // migrator.ts
+/**
+ * Migrator for sqlite_server
+ * ---
+ * Sets up and runs migrations
+ *  - runs inline js migrations and keeps state of applied migrations
+ *  - leveraging the Connector class for signing the token and making the request to the server
+ */
 import {
     ensureMigrationsState,
     generateMigrationObject,
     getOrDefaultMigrationsState,
-    MIGRATIONS_STATE_FILE,
-    writeFile,
+    getStateFilePath,
+    writeMigrationsState,
 } from "util";
 import { Connector } from "./connector.ts";
-import { Sub } from "./util/types.ts";
+import { type Migration, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 import { format } from "@std/path/format";
 
-class Migrator {
-    private migrationsPath: any;
-    private appliedMigrations: any;
-    private migrations: any = [];
+export class Migrator {
+    private migrationsPath: string;
+    private appliedMigrations: string[];
+    private migrations: Migration[] = [];
 
-    private constructor(migrationsPath: string, appliedMigrations: any) {
+    private constructor(migrationsPath: string, appliedMigrations: string[]) {
         this.migrationsPath = migrationsPath;
         this.appliedMigrations = appliedMigrations;
     }
@@ -32,13 +39,11 @@ class Migrator {
         }
 
         await ensureMigrationsState(migrationsPath);
-        // await ensureMigrationsManifest(migrationsPath);
 
         const { __applied_migrations__: appliedMigrations } =
             await getOrDefaultMigrationsState(
                 migrationsPath,
             );
-        // const migrationsManifest = await getOrDefaultMigrationsManifest(migrationsPath);
 
         return new Migrator(
             migrationsPath,
@@ -50,8 +55,21 @@ class Migrator {
         name: string,
         query: string | string[],
     ) {
-        const migration = generateMigrationObject(name, query);
+        const migration = generateMigrationObject(
+            name,
+            query,
+        );
 
+        if (
+            this.migrations.some(({ name }: Migration) =>
+                migration.name === name
+            )
+        ) {
+            throw Error(
+                'Migration name must be unique! EXAMPLE: "202411291040__migration_name"',
+                { cause: "Duplicate entry!" },
+            );
+        }
         if (
             !this.appliedMigrations.some((item: string) =>
                 migration.name === item
@@ -80,28 +98,24 @@ class Migrator {
                         ${this.migrations}
                     `);
 
-                    const appliedMigrationsFilePath = format({
-                        dir: this.migrationsPath,
-                        base: MIGRATIONS_STATE_FILE,
-                    });
+                    const latestAppliedMigrations = this.migrations.map((
+                        { name }: Migration,
+                    ) => name);
 
                     try {
-                        await writeFile(appliedMigrationsFilePath, {
-                            __applied_migrations__: [
-                                ...this.appliedMigrations,
-                                ...this.migrations,
-                            ],
-                        });
+                        await writeMigrationsState(
+                            getStateFilePath(this.migrationsPath),
+                            {
+                                __applied_migrations__: [
+                                    ...this.appliedMigrations,
+                                    ...latestAppliedMigrations,
+                                ],
+                            },
+                        );
                     } catch (_error) {
-                        console.error(`
-                            Could not write to applied migrations file!
-                            Make sure to add the following migrations to the list of applied migrations manually!
-                            ==============================
-                            
-                            ${this.migrations}
-
-                            ==============================
-                        `);
+                        console.error(
+                            `Could not write to applied migrations file!\nMake sure to add the migrations to the list of applied migrations manually!\n==============================\n${latestAppliedMigrations}\n\n==============================`,
+                        );
                     }
                 }
             } else {
@@ -120,9 +134,10 @@ const conn = await Connector.init("http://localhost:8080", {
 });
 const withMigrations = (m: Migrator) => {
     return m
+        .migration("somegoodpracticenumbering doing this thing", "INSER DOG")
         .migration(
             "somegoodpracticenumbering doing this thing",
-            "ALTER TABLE users ADD COLUMN dog TEXT;",
+            "CREATE TABLE users (test TEXT NOT NULL UNIQUE);ALTER TABLE users ADD COLUMN dog TEXT;",
         )
         .migration(
             "some other thing",
@@ -136,54 +151,9 @@ const withMigrations = (m: Migrator) => {
             ],
         );
 };
-
 const migrator = withMigrations(await Migrator.init("./migrations"));
-
+/**
+ * EXAMPLE USAGE
+ *
 await migrator.run(conn);
-
-// !!! USE inline JS HoF-like pattern
-// withMigrations(migrator: Migrator) = function {
-//  return migrator
-//      .migrate("some unique desc", [
-//          "ALTER TABLE BLA BLA;",
-//          "ALTER BLALALALALLALALALA;"
-//      ])
-//      .migrate("some unique desc", [
-//          "ALTER TABLE BLA BLA;",
-//          "ALTER BLALALALALLALALALA;"
-//      ]);
-//}
-
-// const a = migrator
-//     .addMigration(
-//         "this is description",
-//         `
-//         ALTER TABLE users ADD COLUMN ASDFGH TEXT;
-//         INSERT INTO users(name) VALUES(?);
-//         INSERT INTO users(ASDFGH) VALUES(?);
-//         `,
-//         "Olle",
-//         "someshitttt",
-//     )
-//     .addMigration(
-//         "this is description2",
-//         `
-//         ALTER TABLE users ADD COLUMN ASDFGH2 TEXT;
-//         INSERT INTO users(name) VALUES(?);
-//         INSERT INTO users(ASDFGH2) VALUES(?);
-//         `,
-//         "Olle2",
-//         "someshitttt2",
-//     )
-//     .addMigration(
-//         "this is description3",
-//         `
-//         ALTER TABLE users ADD COLUMN ASDFGH3 TEXT;
-//         INSERT INTO users(name) VALUES(?);
-//         INSERT INTO users(ASDFGH3) VALUES(?);
-//         `,
-//         "Olle3",
-//         "someshitttt3",
-//     );
-
-// await a.run(conn);
+ */

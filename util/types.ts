@@ -1,3 +1,8 @@
+// util/types.ts
+export type MigrationsState = {
+    __applied_migrations__: string[];
+};
+
 export type Migration = {
     name: string;
     query: string | string[];

@@ -1,74 +1,49 @@
-// migration.ts
-import { ensureDir, ensureFile } from "@std/fs";
-import { SEPARATOR } from "@std/path/constants";
+// util/migration.ts
+import { ensureFile } from "@std/fs";
 import { format } from "@std/path/format";
-import type { Migration } from "./types.ts";
+import { parse as parseJsonc } from "@std/jsonc";
+import type { Migration, MigrationsState } from "./types.ts";
 
-export const MIGRATIONS_STATE_FILE = "__$gen.serf.state.migrations__.json";
-// export const MIGRATIONS_STATE_FILE = "__$gen.serf.applied.migrations__.json";
-export const MIGRATIONS_MANIFEST_FILE = "migrations.json";
+export const STATE_FILE = "__$gen.serf.state.migrations__";
+const STATE_FILE_HEADER =
+    `/* ${STATE_FILE} */\n/* This file is generated! DON'T change it manually! */\n`;
 
-export const ensureMigrationsManifest = async (path: string) => {
-    const filePath = format({ dir: path, base: MIGRATIONS_MANIFEST_FILE });
-    await ensureFile(filePath);
-};
+export const getStateFilePath = (path: string) =>
+    format({
+        dir: path,
+        base: STATE_FILE + ".jsonc",
+    });
 
 export const ensureMigrationsState = async (path: string) => {
-    const filePath = format({
-        dir: path,
-        base: MIGRATIONS_STATE_FILE,
-    });
-    await ensureFile(filePath);
+    await ensureFile(getStateFilePath(path));
 };
 
-export const getOrDefaultMigrationsManifest = async (path: string) => {
-    const filePath = format({ dir: path, base: MIGRATIONS_MANIFEST_FILE });
+export const getOrDefaultMigrationsState = async (
+    path: string,
+): Promise<MigrationsState> => {
+    const filePath = getStateFilePath(path);
 
     try {
-        return JSON.parse(await Deno.readTextFile(filePath));
-    } catch (_) {
+        return parseJsonc(await Deno.readTextFile(filePath));
+    } catch (_error) {
         await Deno.writeTextFile(
             filePath,
-            JSON.stringify({
-                "migrations": [],
-            }),
+            STATE_FILE_HEADER +
+                JSON.stringify({ "__applied_migrations__": [] }),
         );
 
-        return JSON.parse(await Deno.readTextFile(filePath));
+        return parseJsonc(await Deno.readTextFile(filePath));
     }
 };
 
-export const getOrDefaultMigrationsState = async (path: string) => {
-    const filePath = format({
-        dir: path,
-        base: MIGRATIONS_STATE_FILE,
-    });
-
-    try {
-        return JSON.parse(await Deno.readTextFile(filePath));
-    } catch (_) {
-        await Deno.writeTextFile(
-            filePath,
-            JSON.stringify({
-                "__applied_migrations__": [],
-            }),
-        );
-
-        return JSON.parse(await Deno.readTextFile(filePath));
-    }
-};
-
-export const readFile = async (
+export const writeMigrationsState = async (
     filePath: string,
-): Promise<any> => {
-    return JSON.parse(await Deno.readTextFile(filePath));
-};
-
-export const writeFile = async (
-    filePath: string,
-    obj: any,
+    obj: MigrationsState,
 ) => {
-    await Deno.writeTextFile(filePath, JSON.stringify(obj));
+    await Deno.writeTextFile(
+        filePath,
+        STATE_FILE_HEADER + JSON.stringify(obj),
+    );
 };
 
 export const generateMigrationObject = (
