@@ -16,7 +16,6 @@ import {
 import { Connector } from "./connector.ts";
 import { type Migration, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
-import { format } from "@std/path/format";
 
 export class Migrator {
     private migrationsPath: string;
@@ -127,6 +126,9 @@ export class Migrator {
     }
 }
 
+/**
+ * EXAMPLE USAGE
+ *
 const conn = await Connector.init("http://localhost:8080", {
     database: "helloworld",
     username: "rikard",
@@ -152,8 +154,5 @@ const withMigrations = (m: Migrator) => {
         );
 };
 const migrator = withMigrations(await Migrator.init("./migrations"));
-/**
- * EXAMPLE USAGE
- *
 await migrator.run(conn);
  */
