@@ -100,20 +100,19 @@ export class Migrator {
                     const latestAppliedMigrations = this.migrations.map((
                         { name }: Migration,
                     ) => name);
+                    const stateFilePath = getStateFilePath(this.migrationsPath);
 
                     try {
                         await writeMigrationsState(
-                            getStateFilePath(this.migrationsPath),
-                            {
-                                __applied_migrations__: [
-                                    ...this.appliedMigrations,
-                                    ...latestAppliedMigrations,
-                                ],
-                            },
+                            stateFilePath,
+                            [
+                                ...this.appliedMigrations,
+                                ...latestAppliedMigrations,
+                            ],
                         );
                     } catch (_error) {
                         console.error(
-                            `Could not write to applied migrations file!\nMake sure to add the migrations to the list of applied migrations manually!\n==============================\n${latestAppliedMigrations}\n\n==============================`,
+                            `Could not write to migrations state file:(${stateFilePath})!\nMake sure to add the migrations to the list of applied migrations manually!\n==============================\n${latestAppliedMigrations}\n\n==============================`,
                         );
                     }
                 }
@@ -128,7 +127,6 @@ export class Migrator {
 
 /**
  * EXAMPLE USAGE
- *
 const conn = await Connector.init("http://localhost:8080", {
     database: "helloworld",
     username: "rikard",

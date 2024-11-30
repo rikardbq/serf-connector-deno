@@ -6,7 +6,7 @@ import type { Migration, MigrationsState } from "./types.ts";
 
 export const STATE_FILE = "__$gen.serf.state.migrations__";
 const STATE_FILE_HEADER =
-    `/* ${STATE_FILE} */\n/* This file is generated! DON'T change it manually! */\n`;
+    `/* ${STATE_FILE} */\n/**\n* THIS FILE IS GENERATED!\n* ------\n* Changing this file may lead to inconsistent state \n* between your application migrations and your database!\n**/\n`;
 
 export const getStateFilePath = (path: string) =>
     format({
@@ -38,11 +38,12 @@ export const getOrDefaultMigrationsState = async (
 
 export const writeMigrationsState = async (
     filePath: string,
-    obj: MigrationsState,
+    migrations: string[],
 ) => {
     await Deno.writeTextFile(
         filePath,
-        STATE_FILE_HEADER + JSON.stringify(obj),
+        STATE_FILE_HEADER +
+            JSON.stringify({ "__applied_migrations__": migrations }),
     );
 };
 
