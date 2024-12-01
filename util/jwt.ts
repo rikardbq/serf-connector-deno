@@ -1,13 +1,13 @@
 // util/jwt.ts
 import { decodeJwt, jwtVerify, type JWTVerifyResult, SignJWT } from "jose";
-import { type Claims, Iss, type RequestMigration, type RequestQuery, Sub } from "./types.ts";
+import { type Claims, Iss, type Migration, type Query, Sub } from "./types.ts";
 
 /**
  * @param {Sub} sub
- * @param {RequestQuery | RequestMigration} dat
+ * @param {Query | Migration} dat
  * @returns {Claims} JWT claims
  */
-export const generateClaims = (sub: Sub, dat: RequestQuery | RequestMigration): Claims => {
+export const generateClaims = (sub: Sub, dat: Query | Migration): Claims => {
     const now = Math.floor(Date.now() / 1000);
 
     return {

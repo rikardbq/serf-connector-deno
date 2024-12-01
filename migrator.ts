@@ -11,6 +11,12 @@ import {
     generateMigrationObject,
     getOrDefaultMigrationsState,
     getStateFilePath,
+    MIGRATION_APPLIED,
+    MIGRATION_DUPLICATE_ENTRY,
+    MIGRATION_FAILED,
+    MIGRATION_STATE_WRITE_ERROR,
+    MIGRATIONS_NO_MIGRATIONS,
+    MIGRATIONS_PATH_NOT_SET,
     writeMigrationsState,
 } from "util";
 import { Connector } from "./connector.ts";
@@ -31,9 +37,10 @@ export class Migrator {
         migrationsPath: string,
     ): Promise<Migrator> {
         if (!migrationsPath) {
+            const { message, cause } = MIGRATIONS_PATH_NOT_SET;
             throw Error(
-                'migrationsPath must be set, example: Migratator.init("./migrations");',
-                { cause: "migrationsPath not set" },
+                message,
+                { cause },
             );
         }
 
@@ -54,70 +61,90 @@ export class Migrator {
         name: string,
         query: string | string[],
     ) {
-        const migration = generateMigrationObject(
-            name,
-            query,
-        );
+        const migration = generateMigrationObject(name, query);
 
         if (
             this.migrations.some(({ name }: Migration) =>
                 migration.name === name
             )
         ) {
+            const { message, cause } = MIGRATION_DUPLICATE_ENTRY;
             throw Error(
-                'Migration name must be unique! EXAMPLE: "202411291040__migration_name"',
-                { cause: "Duplicate entry!" },
+                `Duplicate \"${migration.name}\". ${message}`,
+                { cause },
             );
         }
-        if (
-            !this.appliedMigrations.some((item: string) =>
-                migration.name === item
-            )
-        ) {
-            this.migrations.push(migration);
-        }
+
+        this.migrations.push(migration);
 
         return this;
     }
 
-    async run(connector: Connector) {
-        try {
-            if (this.migrations.length > 0) {
-                const response = await connector[requestCallSymbol](
-                    Sub.MIGRATE,
-                    {
-                        migrations: this.migrations,
-                    },
-                    { pathParam: "/m" },
+    private async apply(
+        connector: Connector,
+        appliedMigrations: string[],
+        migrations: Migration[],
+    ): Promise<void> {
+        if (migrations.length === 0) {
+            return;
+        }
+
+        const [migrationToApply, ...restMigrations] = migrations;
+        const response = await connector[requestCallSymbol](
+            Sub.MIGRATE,
+            migrationToApply,
+            { pathParam: "/m" },
+        );
+
+        if (response.data === true) {
+            console.info(MIGRATION_APPLIED);
+            console.table(migrationToApply);
+
+            const stateFilePath = getStateFilePath(this.migrationsPath);
+            const appliedMigrationsState = [
+                ...appliedMigrations,
+                migrationToApply.name,
+            ];
+            try {
+                await writeMigrationsState(
+                    stateFilePath,
+                    appliedMigrationsState,
                 );
 
-                if (response.data === true) {
-                    console.log(`
-                        Successfully applied migrations!
-                        ${this.migrations}
-                    `);
+                return await this.apply(
+                    connector,
+                    appliedMigrationsState,
+                    restMigrations,
+                );
+            } catch (_error) {
+                console.error(MIGRATION_STATE_WRITE_ERROR);
+                console.error(
+                    `------------\n${stateFilePath}\n------------\n${
+                        JSON.stringify(migrationToApply.name)
+                    }`,
+                );
+            }
+        } else {
+            console.error(MIGRATION_FAILED);
+            console.table(migrationToApply);
+            throw Error(MIGRATION_FAILED);
+        }
+    }
 
-                    const latestAppliedMigrations = this.migrations.map((
-                        { name }: Migration,
-                    ) => name);
-                    const stateFilePath = getStateFilePath(this.migrationsPath);
+    async run(connector: Connector) {
+        try {
+            const migrationsToApply = this.migrations.filter((
+                { name }: Migration,
+            ) => !this.appliedMigrations.includes(name));
 
-                    try {
-                        await writeMigrationsState(
-                            stateFilePath,
-                            [
-                                ...this.appliedMigrations,
-                                ...latestAppliedMigrations,
-                            ],
-                        );
-                    } catch (_error) {
-                        console.error(
-                            `Could not write to migrations state file:(${stateFilePath})!\nMake sure to add the migrations to the list of applied migrations manually!\n==============================\n${latestAppliedMigrations}\n\n==============================`,
-                        );
-                    }
-                }
+            if (migrationsToApply.length > 0) {
+                await this.apply(
+                    connector,
+                    this.appliedMigrations,
+                    migrationsToApply,
+                );
             } else {
-                console.log("No migrations to run");
+                console.info(MIGRATIONS_NO_MIGRATIONS);
             }
         } catch (error) {
             console.error(error);
@@ -134,23 +161,29 @@ const conn = await Connector.init("http://localhost:8080", {
 });
 const withMigrations = (m: Migrator) => {
     return m
-        .migration("somegoodpracticenumbering doing this thing", "INSER DOG")
         .migration(
-            "somegoodpracticenumbering doing this thing",
-            "CREATE TABLE users (test TEXT NOT NULL UNIQUE);ALTER TABLE users ADD COLUMN dog TEXT;",
+            "first one",
+            "INSERT INTO users(username, last_name) VALUES('rikardbq','Bergqvist');",
         )
         .migration(
-            "some other thing",
+            "the second one",
             [
-                `
-                CREATE TABLE users2 (
-                    test TEXT NOT NULL UNIQUE
-                );
-                `,
-                "ALTER TABLE users2 ADD COLUMN giga_dog TEXT;",
+                "ALTER TABLE users ADD COLUMN first_name TEXT;",
+                "INSERT INTO users(username, last_name) VALUES('rikardbq2','Bergqvist2');",
             ],
+        )
+        .migration(
+            "the third one",
+            `
+            "ALTER TABLE users ADD COLUMN last_last_name TEXT;",
+            "INSERT INTO users(username, last_name) VALUES('rikardbq3','Bergqvist3');",
+            `,
         );
 };
 const migrator = withMigrations(await Migrator.init("./migrations"));
 await migrator.run(conn);
- */
+console.log(
+    await conn.query("SELECT * FROM usors;"),
+    await conn.query("SELECT * FROM __migrations_tracker_t__"),
+);
+*/

@@ -20,13 +20,9 @@ export enum Sub {
     MUTATE = "MUTATE",
 }
 
-export type RequestQuery = {
+export type Query = {
     query: string;
     parts: (number | string)[] | [];
-};
-
-export type RequestMigration = {
-    migrations: Migration[];
 };
 
 export type Claims = {

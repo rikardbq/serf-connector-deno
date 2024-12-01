@@ -14,7 +14,7 @@ import {
     generateSHA256,
     verifyJWT,
 } from "util";
-import { type RequestMigration, type RequestQuery, Sub } from "./util/types.ts";
+import { type Migration, type Query, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 
 type Error = { statusText?: string; message?: string };
@@ -56,7 +56,7 @@ type ConnectorInitOptions = {
 export class Connector {
     [requestCallSymbol]: (
         sub: Sub,
-        d: RequestQuery | RequestMigration,
+        d: Query | Migration,
         opt?: {
             pathParam?: string;
         },
@@ -131,7 +131,7 @@ export class Connector {
 
         return async function (
             sub: Sub,
-            dat: RequestQuery | RequestMigration,
+            dat: Query | Migration,
             opt?: {
                 pathParam?: string;
             },

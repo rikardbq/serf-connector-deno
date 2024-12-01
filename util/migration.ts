@@ -52,15 +52,16 @@ export const generateMigrationObject = (
     query: string | string[],
 ): Migration => {
     const bundledQuery = Array.isArray(query) ? query.join("") : query;
-    const formattedQuery = bundledQuery
-        .replaceAll(
-            /(\s)\1+|\n+/g,
-            "",
-        );
+    // const formattedQuery = bundledQuery
+        // .replaceAll(/\r*\n*/g, "");
+        // .replaceAll(
+        //     /(\s)\1+|\n+\r*/g,
+        //     "",
+        // );
     const formattedName = name.replaceAll(/\s+/g, "_");
 
     return {
         name: formattedName,
-        query: formattedQuery,
+        query: bundledQuery,
     };
 };
