@@ -24,7 +24,7 @@ export const getOrDefaultMigrationsState = async (
     const filePath = getStateFilePath(path);
 
     try {
-        return parseJsonc(await Deno.readTextFile(filePath));
+        return parseJsonc(await Deno.readTextFile(filePath)) as MigrationsState;
     } catch (_error) {
         await Deno.writeTextFile(
             filePath,
@@ -32,7 +32,7 @@ export const getOrDefaultMigrationsState = async (
                 JSON.stringify({ "__applied_migrations__": [] }),
         );
 
-        return parseJsonc(await Deno.readTextFile(filePath));
+        return parseJsonc(await Deno.readTextFile(filePath)) as MigrationsState;
     }
 };
 
@@ -53,11 +53,11 @@ export const generateMigrationObject = (
 ): Migration => {
     const bundledQuery = Array.isArray(query) ? query.join("") : query;
     // const formattedQuery = bundledQuery
-        // .replaceAll(/\r*\n*/g, "");
-        // .replaceAll(
-        //     /(\s)\1+|\n+\r*/g,
-        //     "",
-        // );
+    // .replaceAll(/\r*\n*/g, "");
+    // .replaceAll(
+    //     /(\s)\1+|\n+\r*/g,
+    //     "",
+    // );
     const formattedName = name.replaceAll(/\s+/g, "_");
 
     return {
