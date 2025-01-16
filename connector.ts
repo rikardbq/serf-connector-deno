@@ -21,13 +21,15 @@ type Error = { statusText?: string; message?: string };
 
 const syntheticResponseObject = (error: Error) => ({
     payload: null,
-    error: error.statusText ?? error.message ??
+    error:
+        error.statusText ??
+        error.message ??
         "Something went wrong (unspecified error)",
 });
 
 const handleResponse = async (
     res: Response,
-    usernamePasswordHash: Uint8Array,
+    usernamePasswordHash: Uint8Array
 ): Promise<{ data: any }> => {
     const json = await res.json();
 
@@ -35,10 +37,7 @@ const handleResponse = async (
         return json;
     }
 
-    await verifyJWT(
-        json.payload as string,
-        usernamePasswordHash,
-    );
+    await verifyJWT(json.payload as string, usernamePasswordHash);
 
     const decoded = decodeJWT(json.payload);
 
@@ -53,24 +52,24 @@ type ConnectorInitOptions = {
     password: string;
 };
 
-export class Connector {
+export default class Connector {
     [requestCallSymbol]: (
         sub: Sub,
         d: Query | Migration,
         opt?: {
             pathParam?: string;
-        },
+        }
     ) => Promise<{ data: any }>;
 
     private constructor(
         fullAddr: string,
         usernameHash: string,
-        usernamePasswordHash: Uint8Array,
+        usernamePasswordHash: Uint8Array
     ) {
         this[requestCallSymbol] = this.prepare(
             fullAddr,
             usernameHash,
-            usernamePasswordHash,
+            usernamePasswordHash
         );
     }
 
@@ -81,11 +80,7 @@ export class Connector {
      */
     static async init(
         addr: string,
-        {
-            database,
-            username,
-            password,
-        }: ConnectorInitOptions,
+        { database, username, password }: ConnectorInitOptions
     ): Promise<Connector> {
         const encoder = new TextEncoder();
         const database_lc = database.toLowerCase();
@@ -93,7 +88,7 @@ export class Connector {
 
         if (pattern.test(database_lc)) {
             throw new Error(
-                "Database name may only contain characters from these patterns: [a-z, 0-9, _-]",
+                "Database name may only contain characters from these patterns: [a-z, 0-9, _-]"
             );
         }
 
@@ -101,14 +96,14 @@ export class Connector {
         const usernameHash = await generateSHA256(username, encoder);
         const usernamePasswordHash = await generateSHA256(
             username + password,
-            encoder,
+            encoder
         );
         const fullAddr = `${addr}/${database_hash}`;
 
         return new Connector(
             fullAddr,
             usernameHash,
-            encoder.encode(usernamePasswordHash),
+            encoder.encode(usernamePasswordHash)
         );
     }
 
@@ -121,7 +116,7 @@ export class Connector {
     private prepare(
         fullAddr: string,
         usernameHash: string,
-        usernamePasswordHash: Uint8Array,
+        usernamePasswordHash: Uint8Array
     ) {
         const endpoint = fullAddr;
         const headers = {
@@ -134,7 +129,7 @@ export class Connector {
             dat: Query | Migration,
             opt?: {
                 pathParam?: string;
-            },
+            }
         ) {
             const optionalPathParam = opt?.pathParam ?? "";
             const claims = generateClaims(sub, dat);
@@ -149,9 +144,9 @@ export class Connector {
                         method: "POST",
                         body,
                         headers,
-                    }),
+                    })
                 ),
-                usernamePasswordHash,
+                usernamePasswordHash
             );
         };
     }
@@ -191,35 +186,21 @@ export class Connector {
 
 /**
  * EXAMPLE USAGE:
+const connection = await Connector.init("http://localhost:8080", {
+    database: "test_db",
+    username: "test_user",
+    password: "test_pass",
+});
 
-const connection = await Connector.init(
-    "http://localhost:8080",
-    { database: "helloworld", username: "rikard", password: "123" },
+await connection.mutate(
+    "CREATE TABLE IF NOT EXISTS testing_table (id INTEGER PRIMARY KEY NOT NULL,im_data TEXT);"
 );
 await connection.mutate(
-    `
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY NOT NULL,
-        username TEXT NOT NULL UNIQUE,
-        first_name TEXT NOT NULL UNIQUE,
-        last_name TEXT NOT NULL
-    );
-    `,
+    "INSERT INTO testing_table(im_data) VALUES (?);",
+    "Some data in here hellooooooo"
 );
 
-const data_mut = await connection.mutate(
-    `
-    INSERT OR IGNORE INTO users(username, first_name, last_name) VALUES(?, ?, ?);
-    `,
-    "rikardo22", "Rikard123o", "Bergquisto123123"
-);
+const data = await connection.query("SELECT * FROM testing_table;");
 
-const data = await connection.query(
-    `
-    SELECT * FROM users;
-    `
-);
-
-console.log(data_mut);
 console.log(data);
 */

@@ -19,11 +19,11 @@ import {
     MIGRATIONS_PATH_NOT_SET,
     writeMigrationsState,
 } from "util";
-import { Connector } from "./connector.ts";
+import Connector from "./connector.ts";
 import { type Migration, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 
-export class Migrator {
+export default class Migrator {
     private migrationsPath: string;
     private appliedMigrations: string[];
     private migrations: Migration[] = [];
@@ -33,46 +33,32 @@ export class Migrator {
         this.appliedMigrations = appliedMigrations;
     }
 
-    static async init(
-        migrationsPath: string,
-    ): Promise<Migrator> {
+    static async init(migrationsPath: string): Promise<Migrator> {
         if (!migrationsPath) {
             const { message, cause } = MIGRATIONS_PATH_NOT_SET;
-            throw Error(
-                message,
-                { cause },
-            );
+            throw Error(message, { cause });
         }
 
         await ensureMigrationsState(migrationsPath);
 
         const { __applied_migrations__: appliedMigrations } =
-            await getOrDefaultMigrationsState(
-                migrationsPath,
-            );
+            await getOrDefaultMigrationsState(migrationsPath);
 
-        return new Migrator(
-            migrationsPath,
-            appliedMigrations,
-        );
+        return new Migrator(migrationsPath, appliedMigrations);
     }
 
-    migration(
-        name: string,
-        query: string | string[],
-    ) {
+    migration(name: string, query: string | string[]) {
         const migration = generateMigrationObject(name, query);
 
         if (
-            this.migrations.some(({ name }: Migration) =>
-                migration.name === name
+            this.migrations.some(
+                ({ name }: Migration) => migration.name === name
             )
         ) {
             const { message, cause } = MIGRATION_DUPLICATE_ENTRY;
-            throw Error(
-                `Duplicate \"${migration.name}\". ${message}`,
-                { cause },
-            );
+            throw Error(`Duplicate \"${migration.name}\". ${message}`, {
+                cause,
+            });
         }
 
         this.migrations.push(migration);
@@ -83,7 +69,7 @@ export class Migrator {
     private async apply(
         connector: Connector,
         appliedMigrations: string[],
-        migrations: Migration[],
+        migrations: Migration[]
     ): Promise<void> {
         if (migrations.length === 0) {
             return;
@@ -93,7 +79,7 @@ export class Migrator {
         const response = await connector[requestCallSymbol](
             Sub.MIGRATE,
             migrationToApply,
-            { pathParam: "/m" },
+            { pathParam: "/m" }
         );
 
         if (response.data === true) {
@@ -108,20 +94,20 @@ export class Migrator {
             try {
                 await writeMigrationsState(
                     stateFilePath,
-                    appliedMigrationsState,
+                    appliedMigrationsState
                 );
 
                 return await this.apply(
                     connector,
                     appliedMigrationsState,
-                    restMigrations,
+                    restMigrations
                 );
             } catch (_error) {
                 console.error(MIGRATION_STATE_WRITE_ERROR);
                 console.error(
-                    `------------\n${stateFilePath}\n------------\n${
-                        JSON.stringify(migrationToApply.name)
-                    }`,
+                    `------------\n${stateFilePath}\n------------\n${JSON.stringify(
+                        migrationToApply.name
+                    )}`
                 );
             }
         } else {
@@ -133,15 +119,15 @@ export class Migrator {
 
     async run(connector: Connector) {
         try {
-            const migrationsToApply = this.migrations.filter((
-                { name }: Migration,
-            ) => !this.appliedMigrations.includes(name));
+            const migrationsToApply = this.migrations.filter(
+                ({ name }: Migration) => !this.appliedMigrations.includes(name)
+            );
 
             if (migrationsToApply.length > 0) {
                 await this.apply(
                     connector,
                     this.appliedMigrations,
-                    migrationsToApply,
+                    migrationsToApply
                 );
             } else {
                 console.info(MIGRATIONS_NO_MIGRATIONS);
@@ -155,35 +141,45 @@ export class Migrator {
 /**
  * EXAMPLE USAGE
 const conn = await Connector.init("http://localhost:8080", {
-    database: "helloworld",
-    username: "rikard",
-    password: "123",
+    database: "test_db",
+    username: "test_user",
+    password: "test_pass",
 });
+
 const withMigrations = (m: Migrator) => {
     return m
         .migration(
+            "create_table", 
+            "CREATE TABLE IF NOT EXISTS testing_table (id INTEGER PRIMARY KEY NOT NULL,im_data TEXT);"
+        )
+        .migration(
             "first one",
-            "INSERT INTO users(username, last_name) VALUES('rikardbq','Bergqvist');",
+            "INSERT INTO testing_table(im_data) VALUES('hello data world');",
         )
         .migration(
             "the second one",
             [
-                "ALTER TABLE users ADD COLUMN first_name TEXT;",
-                "INSERT INTO users(username, last_name) VALUES('rikardbq2','Bergqvist2');",
+                "ALTER TABLE testing_table ADD COLUMN im_data_too TEXT;",
+                "INSERT INTO testing_table(im_data, im_data_too) VALUES('IM DATA','IM DATA TOO');",
             ],
         )
         .migration(
             "the third one",
             `
-            "ALTER TABLE users ADD COLUMN last_last_name TEXT;",
-            "INSERT INTO users(username, last_name) VALUES('rikardbq3','Bergqvist3');",
+            "ALTER TABLE testing_table ADD COLUMN im_data_also TEXT;",
+            "INSERT INTO testing_table(im_data, im_data_too, im_data_also) VALUES('ello m8','data 123','dataaaaaa');",
             `,
         );
 };
-const migrator = withMigrations(await Migrator.init("./migrations"));
+
+const migrator = withMigrations(
+    await Migrator.init("./migrations")
+);
+
 await migrator.run(conn);
+
 console.log(
-    await conn.query("SELECT * FROM usors;"),
+    await conn.query("SELECT * FROM testing_table;"),
     await conn.query("SELECT * FROM __migrations_tracker_t__"),
 );
 */
