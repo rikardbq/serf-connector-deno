@@ -166,8 +166,8 @@ const withMigrations = (m: Migrator) => {
         .migration(
             "the third one",
             `
-            "ALTER TABLE testing_table ADD COLUMN im_data_also TEXT;",
-            "INSERT INTO testing_table(im_data, im_data_too, im_data_also) VALUES('ello m8','data 123','dataaaaaa');",
+            ALTER TABLE testing_table ADD COLUMN im_data_also TEXT;
+            INSERT INTO testing_table(im_data, im_data_too, im_data_also) VALUES('ello m8','data 123','dataaaaaa');
             `,
         );
 };
