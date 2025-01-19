@@ -33,6 +33,10 @@ export default class Migrator {
         this.appliedMigrations = appliedMigrations;
     }
 
+    /**
+     * @param {string} migrationsPath
+     * @returns {Promise<Migrator>} Promise containing new instance of Migrator
+     */
     static async init(migrationsPath: string): Promise<Migrator> {
         if (!migrationsPath) {
             const { message, cause } = MIGRATIONS_PATH_NOT_SET;
@@ -47,12 +51,17 @@ export default class Migrator {
         return new Migrator(migrationsPath, appliedMigrations);
     }
 
+    /**
+     * @param {string} name
+     * @param {string | string[]} query
+     * @returns {Migrator} self instance
+     */
     migration(name: string, query: string | string[]) {
         const migration = generateMigrationObject(name, query);
 
         if (
             this.migrations.some(
-                ({ name }: Migration) => migration.name === name
+                ({ name }: Migration) => migration.name === name,
             )
         ) {
             const { message, cause } = MIGRATION_DUPLICATE_ENTRY;
@@ -66,10 +75,18 @@ export default class Migrator {
         return this;
     }
 
+    /**
+     * @param {Connector} connector
+     * @param {string[]} appliedMigrations
+     * @param {Migration[]} migrations
+     *
+     * recursively run self until un-applied migrations are applied resulting in below
+     * @returns {Promise<void>} empty promise
+     */
     private async apply(
         connector: Connector,
         appliedMigrations: string[],
-        migrations: Migration[]
+        migrations: Migration[],
     ): Promise<void> {
         if (migrations.length === 0) {
             return;
@@ -79,7 +96,7 @@ export default class Migrator {
         const response = await connector[requestCallSymbol](
             Sub.MIGRATE,
             migrationToApply,
-            { pathParam: "/m" }
+            { pathParam: "/m" },
         );
 
         if (response.data === true) {
@@ -94,20 +111,22 @@ export default class Migrator {
             try {
                 await writeMigrationsState(
                     stateFilePath,
-                    appliedMigrationsState
+                    appliedMigrationsState,
                 );
 
                 return await this.apply(
                     connector,
                     appliedMigrationsState,
-                    restMigrations
+                    restMigrations,
                 );
             } catch (_error) {
                 console.error(MIGRATION_STATE_WRITE_ERROR);
                 console.error(
-                    `------------\n${stateFilePath}\n------------\n${JSON.stringify(
-                        migrationToApply.name
-                    )}`
+                    `------------\n${stateFilePath}\n------------\n${
+                        JSON.stringify(
+                            migrationToApply.name,
+                        )
+                    }`,
                 );
             }
         } else {
@@ -117,17 +136,21 @@ export default class Migrator {
         }
     }
 
-    async run(connector: Connector) {
+    /**
+     * @param {Connector} connector
+     * @returns {Promise<void>}
+     */
+    async run(connector: Connector): Promise<void> {
         try {
             const migrationsToApply = this.migrations.filter(
-                ({ name }: Migration) => !this.appliedMigrations.includes(name)
+                ({ name }: Migration) => !this.appliedMigrations.includes(name),
             );
 
             if (migrationsToApply.length > 0) {
                 await this.apply(
                     connector,
                     this.appliedMigrations,
-                    migrationsToApply
+                    migrationsToApply,
                 );
             } else {
                 console.info(MIGRATIONS_NO_MIGRATIONS);
@@ -149,7 +172,7 @@ const conn = await Connector.init("http://localhost:8080", {
 const withMigrations = (m: Migrator) => {
     return m
         .migration(
-            "create_table", 
+            "create_table",
             "CREATE TABLE IF NOT EXISTS testing_table (id INTEGER PRIMARY KEY NOT NULL,im_data TEXT);"
         )
         .migration(

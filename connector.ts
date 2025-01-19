@@ -21,15 +21,14 @@ type Error = { statusText?: string; message?: string };
 
 const syntheticResponseObject = (error: Error) => ({
     payload: null,
-    error:
-        error.statusText ??
+    error: error.statusText ??
         error.message ??
         "Something went wrong (unspecified error)",
 });
 
 const handleResponse = async (
     res: Response,
-    usernamePasswordHash: Uint8Array
+    usernamePasswordHash: Uint8Array,
 ): Promise<{ data: any }> => {
     const json = await res.json();
 
@@ -58,52 +57,52 @@ export default class Connector {
         d: Query | Migration,
         opt?: {
             pathParam?: string;
-        }
+        },
     ) => Promise<{ data: any }>;
 
     private constructor(
         fullAddr: string,
         usernameHash: string,
-        usernamePasswordHash: Uint8Array
+        usernamePasswordHash: Uint8Array,
     ) {
         this[requestCallSymbol] = this.prepare(
             fullAddr,
             usernameHash,
-            usernamePasswordHash
+            usernamePasswordHash,
         );
     }
 
     /**
      * @param {string} addr
-     * @param {ConnectorInitOptions} connector_init_args
-     * @returns {Connector} new instance of Connector
+     * @param {ConnectorInitOptions} connectorInitOptions
+     * @returns {Promise<Connector>} Promise containing new instance of Connector
      */
     static async init(
         addr: string,
-        { database, username, password }: ConnectorInitOptions
+        { database, username, password }: ConnectorInitOptions,
     ): Promise<Connector> {
         const encoder = new TextEncoder();
-        const database_lc = database.toLowerCase();
+        const databaseLc = database.toLowerCase();
         const pattern = /[^a-z0-9_-]+/g;
 
-        if (pattern.test(database_lc)) {
+        if (pattern.test(databaseLc)) {
             throw new Error(
-                "Database name may only contain characters from these patterns: [a-z, 0-9, _-]"
+                "Database name may only contain characters from these patterns: [a-z, 0-9, _-]",
             );
         }
 
-        const database_hash = await generateSHA256(database_lc, encoder);
+        const databaseHash = await generateSHA256(databaseLc, encoder);
         const usernameHash = await generateSHA256(username, encoder);
         const usernamePasswordHash = await generateSHA256(
             username + password,
-            encoder
+            encoder,
         );
-        const fullAddr = `${addr}/${database_hash}`;
+        const fullAddr = `${addr}/${databaseHash}`;
 
         return new Connector(
             fullAddr,
             usernameHash,
-            encoder.encode(usernamePasswordHash)
+            encoder.encode(usernamePasswordHash),
         );
     }
 
@@ -111,13 +110,15 @@ export default class Connector {
      * @param {string} fullAddr
      * @param {string} usernameHash
      * @param {string} usernamePasswordHash
-     * @returns {(q: string, ...qa: (number | string)[]) => Promise<any>} function that accepts query string and query varargs and returns thenable / awaitable fetch response
+     * @returns {(Sub, Query | Migration, object) => Promise<object>}
      */
     private prepare(
         fullAddr: string,
         usernameHash: string,
-        usernamePasswordHash: Uint8Array
-    ) {
+        usernamePasswordHash: Uint8Array,
+    ): (sub: Sub, dat: Query | Migration, opt?: {
+        pathParam?: string;
+    }) => Promise<{ data: any }> {
         const endpoint = fullAddr;
         const headers = {
             "content-type": "application/json",
@@ -129,7 +130,7 @@ export default class Connector {
             dat: Query | Migration,
             opt?: {
                 pathParam?: string;
-            }
+            },
         ) {
             const optionalPathParam = opt?.pathParam ?? "";
             const claims = generateClaims(sub, dat);
@@ -144,9 +145,9 @@ export default class Connector {
                         method: "POST",
                         body,
                         headers,
-                    })
+                    }),
                 ),
-                usernamePasswordHash
+                usernamePasswordHash,
             );
         };
     }

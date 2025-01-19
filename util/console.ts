@@ -1,3 +1,4 @@
+// util/console.ts
 export const MIGRATION_STATE_WRITE_ERROR =
     "Could not write to migrations state file!\nMake sure to add the migration to the list of applied migrations manually!";
 export const MIGRATIONS_PATH_NOT_SET = {

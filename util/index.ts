@@ -4,9 +4,8 @@ export * from "./migration.ts";
 export * from "./console.ts";
 
 /**
- * 
- * @param {string} input 
- * @param {TextEncoder} encoder 
+ * @param {string} input
+ * @param {TextEncoder} encoder
  * @returns {string} a sha256 hash of the input
  */
 export const generateSHA256 = async (input: string, encoder: TextEncoder) => {
