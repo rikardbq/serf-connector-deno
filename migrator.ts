@@ -192,6 +192,10 @@ const withMigrations = (m: Migrator) => {
             ALTER TABLE testing_table ADD COLUMN im_data_also TEXT;
             INSERT INTO testing_table(im_data, im_data_too, im_data_also) VALUES('ello m8','data 123','dataaaaaa');
             `,
+        )
+        .migration(
+            "mambo number 4",
+            "INSERT INTO testing_table(im_data, im_data_too, im_data_also) VALUES('test', 'test_too', 'test_also');"
         );
 };
 

@@ -52,7 +52,7 @@ type ConnectorInitOptions = {
 };
 
 export default class Connector {
-    [requestCallSymbol]: (
+    private [requestCallSymbol]: (
         sub: Sub,
         d: Query | Migration,
         opt?: {
