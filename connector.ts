@@ -184,24 +184,3 @@ export default class Connector {
         }
     }
 }
-
-/**
- * EXAMPLE USAGE:
-const connection = await Connector.init("http://localhost:8080", {
-    database: "test_db",
-    username: "test_user",
-    password: "test_pass",
-});
-
-await connection.mutate(
-    "CREATE TABLE IF NOT EXISTS testing_table (id INTEGER PRIMARY KEY NOT NULL,im_data TEXT);"
-);
-await connection.mutate(
-    "INSERT INTO testing_table(im_data) VALUES (?);",
-    "Some data in here hellooooooo"
-);
-
-const data = await connection.query("SELECT * FROM testing_table;");
-
-console.log(data);
-*/
