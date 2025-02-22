@@ -20,7 +20,7 @@ import {
     writeMigrationsState,
 } from "util";
 import Connector from "./connector.ts";
-import { type Migration, Sub } from "./util/types.ts";
+import { type Migration, type MigrationRes, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 
 export default class Migrator {
@@ -98,8 +98,9 @@ export default class Migrator {
             migrationToApply,
             { pathParam: "/m" },
         );
+        const data = response?.data as MigrationRes;
 
-        if (response.data === true) {
+        if (data?.state === true) {
             console.info(MIGRATION_APPLIED);
             console.table(migrationToApply);
 

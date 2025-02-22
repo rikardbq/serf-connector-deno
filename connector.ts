@@ -14,7 +14,7 @@ import {
     generateSHA256,
     verifyJWT,
 } from "util";
-import { type Migration, type Query, Sub } from "./util/types.ts";
+import { type DatKind, type Migration, type Query, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 
 type Error = { statusText?: string; message?: string };
@@ -29,7 +29,7 @@ const syntheticResponseObject = (error: Error) => ({
 const handleResponse = async (
     res: Response,
     usernamePasswordHash: Uint8Array,
-): Promise<{ data: any }> => {
+): Promise<{ data: DatKind }> => {
     const json = await res.json();
 
     if (json.error) {
@@ -41,7 +41,7 @@ const handleResponse = async (
     const decoded = decodeJWT(json.payload);
 
     return {
-        data: JSON.parse(decoded.dat as string),
+        data: decoded.dat,
     };
 };
 
@@ -58,7 +58,7 @@ export default class Connector {
         opt?: {
             pathParam?: string;
         },
-    ) => Promise<{ data: any }>;
+    ) => Promise<{ data: DatKind }>;
 
     private constructor(
         fullAddr: string,
@@ -116,9 +116,13 @@ export default class Connector {
         fullAddr: string,
         usernameHash: string,
         usernamePasswordHash: Uint8Array,
-    ): (sub: Sub, dat: Query | Migration, opt?: {
-        pathParam?: string;
-    }) => Promise<{ data: any }> {
+    ): (
+        sub: Sub,
+        dat: Query | Migration,
+        opt?: {
+            pathParam?: string;
+        },
+    ) => Promise<{ data: DatKind }> {
         const endpoint = fullAddr;
         const headers = {
             "content-type": "application/json",

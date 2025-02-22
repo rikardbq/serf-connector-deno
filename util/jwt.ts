@@ -13,7 +13,7 @@ export const generateClaims = (sub: Sub, dat: Query | Migration): Claims => {
     return {
         iss: Iss.CLIENT,
         sub,
-        dat: JSON.stringify(dat),
+        dat: dat,
         iat: now,
         exp: now + 30,
     };
