@@ -29,7 +29,7 @@ const syntheticResponseObject = (error: Error) => ({
 const handleResponse = async (
     res: Response,
     usernamePasswordHash: Uint8Array,
-): Promise<{ data: DatKind }> => {
+): Promise<DatKind> => {
     const json = await res.json();
 
     if (json.error) {
@@ -37,12 +37,9 @@ const handleResponse = async (
     }
 
     await verifyJWT(json.payload as string, usernamePasswordHash);
-
     const decoded = decodeJWT(json.payload);
 
-    return {
-        data: decoded.dat,
-    };
+    return decoded.dat;
 };
 
 type ConnectorInitOptions = {
@@ -58,7 +55,7 @@ export default class Connector {
         opt?: {
             pathParam?: string;
         },
-    ) => Promise<{ data: DatKind }>;
+    ) => Promise<DatKind>;
 
     private constructor(
         fullAddr: string,
@@ -122,7 +119,7 @@ export default class Connector {
         opt?: {
             pathParam?: string;
         },
-    ) => Promise<{ data: DatKind }> {
+    ) => Promise<DatKind> {
         const endpoint = fullAddr;
         const headers = {
             "content-type": "application/json",
