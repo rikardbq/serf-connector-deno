@@ -77,8 +77,7 @@ export default class Migrator {
 
     /**
      * @param {Connector} connector
-     * @param {string[]} appliedMigrations
-     * @param {Migration[]} migrations
+     * @param {Migration} migration
      *
      * @returns {Promise<MigrationResponse>} MigrationResponse promise
      */
