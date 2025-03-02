@@ -13,14 +13,14 @@ export type Query = {
     parts: (number | string)[] | [];
 };
 
-export type FetchRes = object[];
+export type FetchResponse = object[];
 
-export type MutationRes = {
+export type MutationResponse = {
     rows_affected: number;
     last_insert_rowid: number;
 };
 
-export type MigrationRes = {
+export type MigrationResponse = {
     state: boolean;
 };
 
@@ -36,7 +36,7 @@ export enum Sub {
     MUTATE = "MUTATE",
 }
 
-export type DatKind = Query | Migration | FetchRes | MutationRes | MigrationRes;
+export type DatKind = Query | Migration | FetchResponse | MutationResponse | MigrationResponse;
 
 export type Claims = {
     iss: Iss;

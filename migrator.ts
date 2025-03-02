@@ -20,7 +20,7 @@ import {
     writeMigrationsState,
 } from "util";
 import Connector from "./connector.ts";
-import { type Migration, type MigrationRes, Sub } from "./util/types.ts";
+import { type Migration, type MigrationResponse, Sub } from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 
 export default class Migrator {
@@ -80,61 +80,51 @@ export default class Migrator {
      * @param {string[]} appliedMigrations
      * @param {Migration[]} migrations
      *
-     * recursively run self until un-applied migrations are applied resulting in below
-     * @returns {Promise<void>} empty promise
+     * @returns {Promise<MigrationResponse>} MigrationResponse promise
      */
     private async apply(
         connector: Connector,
-        appliedMigrations: string[],
-        migrations: Migration[],
-    ): Promise<void> {
-        if (migrations.length === 0) {
-            return;
-        }
-
-        const [migrationToApply, ...restMigrations] = migrations;
+        migration: Migration,
+    ): Promise<MigrationResponse> {
+        const appliedMigrations: string[] = this.appliedMigrations;
         const response = await connector[requestCallSymbol](
             Sub.MIGRATE,
-            migrationToApply,
+            migration,
             { pathParam: "/m" },
-        );
-        const data = response?.data as MigrationRes;
+        ) as MigrationResponse;
 
-        if (data?.state === true) {
-            console.info(MIGRATION_APPLIED);
-            console.table(migrationToApply);
-
-            const stateFilePath = getStateFilePath(this.migrationsPath);
-            const appliedMigrationsState = [
-                ...appliedMigrations,
-                migrationToApply.name,
-            ];
-            try {
-                await writeMigrationsState(
-                    stateFilePath,
-                    appliedMigrationsState,
-                );
-
-                return await this.apply(
-                    connector,
-                    appliedMigrationsState,
-                    restMigrations,
-                );
-            } catch (_error) {
-                console.error(MIGRATION_STATE_WRITE_ERROR);
-                console.error(
-                    `------------\n${stateFilePath}\n------------\n${
-                        JSON.stringify(
-                            migrationToApply.name,
-                        )
-                    }`,
-                );
-            }
-        } else {
+        if (!response?.state) {
             console.error(MIGRATION_FAILED);
-            console.table(migrationToApply);
+            console.table(migration);
+
             throw Error(MIGRATION_FAILED);
         }
+
+        console.info(MIGRATION_APPLIED);
+        console.table(migration);
+
+        const stateFilePath = getStateFilePath(this.migrationsPath);
+        const appliedMigrationsState = [
+            ...appliedMigrations,
+            migration.name,
+        ];
+        try {
+            await writeMigrationsState(
+                stateFilePath,
+                appliedMigrationsState,
+            );
+        } catch (_error) {
+            console.error(MIGRATION_STATE_WRITE_ERROR);
+            console.error(
+                `------------\n${stateFilePath}\n------------\n${
+                    JSON.stringify(
+                        migration.name,
+                    )
+                }`,
+            );
+        }
+
+        return response;
     }
 
     /**
@@ -148,11 +138,12 @@ export default class Migrator {
             );
 
             if (migrationsToApply.length > 0) {
-                await this.apply(
-                    connector,
-                    this.appliedMigrations,
-                    migrationsToApply,
-                );
+                for (const migration of migrationsToApply) {
+                    await this.apply(
+                        connector,
+                        migration,
+                    );
+                }
             } else {
                 console.info(MIGRATIONS_NO_MIGRATIONS);
             }
