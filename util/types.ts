@@ -13,7 +13,20 @@ export type Query = {
     parts: (number | string)[] | [];
 };
 
-export type FetchResponse = object[];
+export type Error = {
+    statusText?: string | null;
+    message?: string | null;
+    source?: string | null;
+};
+
+export type ResultResponse = {
+    payload: string | null;
+    error: Error;
+};
+
+export type FetchResponse = {
+    data: object[];
+};
 
 export type MutationResponse = {
     rows_affected: number;
@@ -36,7 +49,13 @@ export enum Sub {
     MUTATE = "MUTATE",
 }
 
-export type DatKind = Query | Migration | FetchResponse | MutationResponse | MigrationResponse;
+export type DatKind =
+    | Query
+    | Migration
+    | FetchResponse
+    | MutationResponse
+    | MigrationResponse
+    | ResultResponse;
 
 export type Claims = {
     iss: Iss;

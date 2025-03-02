@@ -14,30 +14,41 @@ import {
     generateSHA256,
     verifyJWT,
 } from "util";
-import { type DatKind, type Migration, type Query, Sub } from "./util/types.ts";
+import {
+    type DatKind,
+    type Error,
+    type FetchResponse,
+    type Migration,
+    type MutationResponse,
+    type Query,
+    type ResultResponse,
+    Sub,
+} from "./util/types.ts";
 import { requestCallSymbol } from "./util/symbols.ts";
 
-type Error = { statusText?: string; message?: string };
-
-const syntheticResponseObject = (error: Error) => ({
+const syntheticErrorResponse = (error: Error): ResultResponse => ({
     payload: null,
-    error: error.statusText ??
-        error.message ??
-        "Something went wrong (unspecified error)",
+    error: {
+        message: error.statusText ?? error.message ??
+            "Something went wrong (unspecified error)",
+        source: error.source ?? null,
+    },
 });
 
 const handleResponse = async (
     res: Response,
     usernamePasswordHash: Uint8Array,
 ): Promise<DatKind> => {
-    const json = await res.json();
+    const json: ResultResponse = await res.json();
 
     if (json.error) {
         return json;
     }
 
-    await verifyJWT(json.payload as string, usernamePasswordHash);
-    const decoded = decodeJWT(json.payload);
+    const payload = json.payload!;
+
+    await verifyJWT(payload, usernamePasswordHash);
+    const decoded = decodeJWT(payload);
 
     return decoded.dat;
 };
@@ -156,32 +167,32 @@ export default class Connector {
     /**
      * @param {string} query
      * @param {(number | string)[]} queryArgs
-     * @returns {JSON} json data
+     * @returns {Promise<DatKind>} json data
      */
     async query(query: string, ...queryArgs: (number | string)[]) {
         try {
             return await this[requestCallSymbol](Sub.FETCH, {
                 query,
                 parts: queryArgs,
-            });
+            }) as FetchResponse;
         } catch (error) {
-            return syntheticResponseObject(error as Error);
+            return syntheticErrorResponse(error as Error);
         }
     }
 
     /**
      * @param {string} query
      * @param {(number | string)[]} queryArgs
-     * @returns {JSON} json data
+     * @returns {Promise<DatKind>} json data
      */
     async mutate(query: string, ...queryArgs: (number | string)[]) {
         try {
             return await this[requestCallSymbol](Sub.MUTATE, {
                 query,
                 parts: queryArgs,
-            });
+            }) as MutationResponse;
         } catch (error) {
-            return syntheticResponseObject(error as Error);
+            return syntheticErrorResponse(error as Error);
         }
     }
 }
