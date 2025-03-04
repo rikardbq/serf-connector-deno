@@ -8,15 +8,14 @@
  */
 import {
     ensureMigrationsState,
-    generateMigrationObject,
     getOrDefaultMigrationsState,
     getStateFilePath,
     MIGRATION_APPLIED,
-    MIGRATION_DUPLICATE_ENTRY,
     MIGRATION_FAILED,
     MIGRATION_STATE_WRITE_ERROR,
     MIGRATIONS_NO_MIGRATIONS,
     MIGRATIONS_PATH_NOT_SET,
+    readMigrations,
     writeMigrationsState,
 } from "util";
 import Connector from "./connector.ts";
@@ -26,7 +25,6 @@ import { requestCallSymbol } from "./util/symbols.ts";
 export default class Migrator {
     private migrationsPath: string;
     private appliedMigrations: string[];
-    private migrations: Migration[] = [];
 
     private constructor(migrationsPath: string, appliedMigrations: string[]) {
         this.migrationsPath = migrationsPath;
@@ -52,27 +50,12 @@ export default class Migrator {
     }
 
     /**
-     * @param {string} name
-     * @param {string | string[]} query
-     * @returns {Migrator} self instance
+     * @returns {Promise<Migration[]>} awaitable array of Migration objects
      */
-    migration(name: string, query: string | string[]) {
-        const migration = generateMigrationObject(name, query);
-
-        if (
-            this.migrations.some(
-                ({ name }: Migration) => migration.name === name,
-            )
-        ) {
-            const { message, cause } = MIGRATION_DUPLICATE_ENTRY;
-            throw Error(`Duplicate \"${migration.name}\". ${message}`, {
-                cause,
-            });
-        }
-
-        this.migrations.push(migration);
-
-        return this;
+    private async prepareMigrations() {
+        return (await readMigrations(this.migrationsPath)).filter(
+            (x) => !this.appliedMigrations.includes(x.name),
+        );
     }
 
     /**
@@ -85,7 +68,6 @@ export default class Migrator {
         connector: Connector,
         migration: Migration,
     ): Promise<MigrationResponse> {
-        const appliedMigrations: string[] = this.appliedMigrations;
         const response = await connector[requestCallSymbol](
             Sub.MIGRATE,
             migration,
@@ -103,14 +85,15 @@ export default class Migrator {
         console.table(migration);
 
         const stateFilePath = getStateFilePath(this.migrationsPath);
-        const appliedMigrationsState = [
-            ...appliedMigrations,
+        this.appliedMigrations = [
+            ...this.appliedMigrations,
             migration.name,
         ];
+
         try {
             await writeMigrationsState(
                 stateFilePath,
-                appliedMigrationsState,
+                this.appliedMigrations,
             );
         } catch (_error) {
             console.error(MIGRATION_STATE_WRITE_ERROR);
@@ -132,9 +115,7 @@ export default class Migrator {
      */
     async run(connector: Connector): Promise<void> {
         try {
-            const migrationsToApply = this.migrations.filter(
-                ({ name }: Migration) => !this.appliedMigrations.includes(name),
-            );
+            const migrationsToApply = await this.prepareMigrations();
 
             if (migrationsToApply.length > 0) {
                 for (const migration of migrationsToApply) {

@@ -3,6 +3,7 @@ import { ensureFile } from "@std/fs";
 import { format } from "@std/path/format";
 import { parse as parseJsonc } from "@std/jsonc";
 import type { Migration, MigrationsState } from "./types.ts";
+import { MIGRATION_DUPLICATE_ENTRY } from "util";
 
 export const STATE_FILE = "__$gen.serf.state.migrations__";
 const STATE_FILE_HEADER =
@@ -34,6 +35,36 @@ export const getOrDefaultMigrationsState = async (
 
         return parseJsonc(await Deno.readTextFile(filePath)) as MigrationsState;
     }
+};
+
+const trimFileEnding = (fileName: string, ending: string) =>
+    fileName.replaceAll(ending, "");
+
+export const readMigrations = async (migrationsPath: string) => {
+    const migrations: Migration[] = [];
+    for await (const dirEntry of Deno.readDir(migrationsPath)) {
+        const entryName = dirEntry.name;
+
+        if (dirEntry.isFile && entryName.includes(".sql")) {
+            const fileContent = await Deno.readTextFile(
+                format({ dir: migrationsPath, base: entryName }),
+            );
+            const trimmedFileName = trimFileEnding(entryName, ".sql");
+
+            if (migrations.some((x) => x.name === trimmedFileName)) {
+                const { message, cause } = MIGRATION_DUPLICATE_ENTRY;
+                throw Error(`Duplicate \"${trimmedFileName}\". ${message}`, {
+                    cause,
+                });
+            }
+
+            migrations.push(
+                generateMigrationObject(trimmedFileName, fileContent),
+            );
+        }
+    }
+
+    return migrations;
 };
 
 export const writeMigrationsState = async (
